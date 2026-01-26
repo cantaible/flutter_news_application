@@ -18,12 +18,27 @@ class _NewsSourcePageState extends State<NewsSourcePage> {
   bool _enabled = true;
   bool _isSubmitting = false;
   List<NewsSource> _sources = <NewsSource>[];
+  final TextEditingController _urlController = TextEditingController();
+  final List<String> _presetUrls = const <String>[
+    'https://www.qbitai.com/',
+    'https://www.jiqizhixin.com/',
+    'https://aiera.com.cn/',
+    'https://news.mit.edu/topic/artificial-intelligence2',
+    'https://venturebeat.com/feed',
+    'https://techcrunch.com/feed/',
+  ];
 
   @override
   void initState() {
     super.initState();
     // Fetch existing sources when the page is created.
     _fetchFeedItems();
+  }
+
+  @override
+  void dispose() {
+    _urlController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchFeedItems() async {
@@ -138,10 +153,36 @@ class _NewsSourcePageState extends State<NewsSourcePage> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    TextFormField(
-                      decoration: const InputDecoration(labelText: 'URL'),
-                      keyboardType: TextInputType.url,
-                      textInputAction: TextInputAction.done,
+                    Autocomplete<String>(
+                      optionsBuilder: (TextEditingValue textEditingValue) {
+                        if (textEditingValue.text.isEmpty) {
+                          return _presetUrls;
+                        }
+                        return _presetUrls.where(
+                          (url) => url
+                              .toLowerCase()
+                              .contains(textEditingValue.text.toLowerCase()),
+                        );
+                      },
+                      onSelected: (selection) {
+                        _urlController.text = selection;
+                      },
+                      fieldViewBuilder: (
+                        context,
+                        textEditingController,
+                        focusNode,
+                        onFieldSubmitted,
+                      ) {
+                        _urlController.value = textEditingController.value;
+                        return TextFormField(
+                          controller: textEditingController,
+                          focusNode: focusNode,
+                          decoration: const InputDecoration(labelText: 'URL'),
+                          keyboardType: TextInputType.url,
+                          textInputAction: TextInputAction.done,
+                          onFieldSubmitted: (_) => onFieldSubmitted(),
+                        );
+                      },
                     ),
                     const SizedBox(height: 12),
                     Row(

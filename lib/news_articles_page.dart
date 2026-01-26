@@ -4,11 +4,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:flutter_news_application/config/app_config.dart';
+import 'package:flutter_news_application/article_web_view_page.dart';
 import 'package:flutter_news_application/models/news_article.dart';
 import 'package:flutter_news_application/models/news_filter_state.dart';
 import 'package:flutter_news_application/widgets/news_card.dart';
 import 'package:flutter_news_application/widgets/news_filter_bar.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class NewsArticlesPage extends StatefulWidget {
   const NewsArticlesPage({super.key});
@@ -164,7 +164,15 @@ class _NewsArticlesPageState extends State<NewsArticlesPage> {
                 itemBuilder: (context, index) {
                   return NewsCard(
                     article: visibleArticles[index],
-                    onTap: () => _openArticle(visibleArticles[index].sourceUrl),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => ArticleWebViewPage(
+                            url: visibleArticles[index].sourceUrl,
+                          ),
+                        ),
+                      );
+                    },
                   );
                 },
               );
@@ -339,22 +347,4 @@ class _NewsArticlesPageState extends State<NewsArticlesPage> {
     }
   }
 
-  Future<void> _openArticle(String url) async {
-    final Uri? uri = Uri.tryParse(url);
-    if (uri == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('无效链接')),
-      );
-      return;
-    }
-    final bool opened = await launchUrl(
-      uri,
-      mode: LaunchMode.inAppWebView,
-    );
-    if (!opened && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('无法打开链接')),
-      );
-    }
-  }
 }

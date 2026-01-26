@@ -18,6 +18,7 @@ class _NewsSourcePageState extends State<NewsSourcePage> {
   bool _enabled = true;
   bool _isSubmitting = false;
   List<NewsSource> _sources = <NewsSource>[];
+  final TextEditingController _nameController = TextEditingController();
   final TextEditingController _urlController = TextEditingController();
   final List<String> _presetUrls = const <String>[
     'https://www.qbitai.com/',
@@ -37,6 +38,7 @@ class _NewsSourcePageState extends State<NewsSourcePage> {
 
   @override
   void dispose() {
+    _nameController.dispose();
     _urlController.dispose();
     super.dispose();
   }
@@ -82,8 +84,61 @@ class _NewsSourcePageState extends State<NewsSourcePage> {
       _isSubmitting = true;
     });
 
-    // TODO: Replace with real API call.
-    await Future<void>.delayed(const Duration(seconds: 2));
+    final String name = _nameController.text.trim();
+    final String url = _urlController.text.trim();
+    if (name.isEmpty || url.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Name 和 URL 不能为空')),
+      );
+      setState(() {
+        _isSubmitting = false;
+      });
+      return;
+    }
+
+    final HttpClient client = HttpClient();
+    try {
+      final Uri uri = Uri.parse('${AppConfig.baseUrl}/feeds/new');
+      final HttpClientRequest request = await client.postUrl(uri);
+      request.headers.contentType =
+          ContentType('application', 'x-www-form-urlencoded');
+      final String now = DateTime.now().toIso8601String();
+      final Map<String, String> payload = <String, String>{
+        'name': name,
+        'url': url,
+        'sourceType': _sourceType.toUpperCase(),
+        'enabled': _enabled ? '1' : '0',
+        'createdAt': now,
+        'updatedAt': now,
+      };
+      final String requestBody = payload.entries
+          .map((e) => '${Uri.encodeQueryComponent(e.key)}='
+              '${Uri.encodeQueryComponent(e.value)}')
+          .join('&');
+      debugPrint('Create source payload: $requestBody');
+      request.add(utf8.encode(requestBody));
+      final HttpClientResponse response = await request.close();
+      final String responseBody =
+          await response.transform(utf8.decoder).join();
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw HttpException(
+          'Failed to create source: ${response.statusCode}, $responseBody',
+          uri: uri,
+        );
+      }
+      _nameController.clear();
+      _urlController.clear();
+      await _fetchFeedItems();
+    } catch (error) {
+      debugPrint('Create source failed: $error');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('提交失败：$error')),
+        );
+      }
+    } finally {
+      client.close();
+    }
 
     if (!mounted) {
       return;
@@ -116,6 +171,7 @@ class _NewsSourcePageState extends State<NewsSourcePage> {
                           // Expanded在 Row/Column 里让子组件“占满剩余空间”，并按 flex 比例分配。
                           flex: 3,
                           child: TextFormField(
+                            controller: _nameController,
                             decoration: const InputDecoration(
                               labelText: 'Name',
                             ),
